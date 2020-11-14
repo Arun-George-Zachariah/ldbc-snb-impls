@@ -414,7 +414,8 @@ public class GraphLoader {
                     .next();
 
                 for (int j = 1; j < fieldValues.length; j++) {
-                  vertex.property(VertexProperty.Cardinality.list,
+                  // Minor change from 'list' to 'single' - Arun
+                  vertex.property(VertexProperty.Cardinality.single,
                       fieldNames[j], fieldValues[j]);
                 }
               }
