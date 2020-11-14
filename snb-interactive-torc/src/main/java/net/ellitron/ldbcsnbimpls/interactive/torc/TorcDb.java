@@ -2150,11 +2150,16 @@ public class TorcDb extends Db {
        
         TraversalResult company = graph.traverse(friends, "workAt", Direction.OUT, true, "Organisation");
 
-        TorcHelper.removeEdgeIf(company, (v, p) -> { 
-          if (((Integer)p.get("workFrom")).compareTo(workFromYear) >= 0)
+        TorcHelper.removeEdgeIf(company, (v, p) -> {
+          if(p.get("workFrom") instanceof Integer && ((Integer) p.get("workFrom")).compareTo(workFromYear) >= 0) {
             return true;
-          else 
+          } if(p.get("workFrom") instanceof String && (Integer.parseInt(String.valueOf(p.get("workFrom")))).compareTo(workFromYear) >= 0) {
+            return true;
+          } else if ((new Integer((int)p.get("workFrom"))).compareTo(workFromYear) >= 0) {
+            return true;
+          } else {
             return false;
+          }
         });
 
         TraversalResult country = graph.traverse(company, "isLocatedIn", Direction.OUT, false, "Place");
@@ -2899,12 +2904,13 @@ public class TorcDb extends Db {
             new LdbcShortQuery1PersonProfileResult(
                 (String)propertyMap.get("firstName"),
                 (String)propertyMap.get("lastName"),
-                (Long)propertyMap.get("birthday"),
+                Long.parseLong((String)propertyMap.get("birthday")),
                 (String)propertyMap.get("locationIP"),
                 (String)propertyMap.get("browserUsed"),
                 placeId,
                 (String)propertyMap.get("gender"),
-                (Long)propertyMap.get("creationDate"));
+                Long.parseLong((String)propertyMap.get("creationDate"))
+            );
 
         if (doTransactionalReads) {
           try {
@@ -2961,8 +2967,19 @@ public class TorcDb extends Db {
           Vertex v1 = (Vertex) a;
           Vertex v2 = (Vertex) b;
 
-          long v1Date = v1.<Long>property("creationDate").value().longValue();
-          long v2Date = v2.<Long>property("creationDate").value().longValue();
+          long v1Date, v2Date;
+
+          if(v1.property("creationDate").value() instanceof Long) {
+            v1Date = (Long) v1.property("creationDate").value();
+          } else {
+            v1Date = Long.parseLong((String) v1.property("creationDate").value());
+          }
+
+          if(v2.property("creationDate").value() instanceof Long) {
+            v2Date = (Long) v2.property("creationDate").value();
+          } else {
+            v2Date = Long.parseLong((String) v2.property("creationDate").value());
+          }
 
           if (v1Date > v2Date) {
             return -1;
@@ -2999,7 +3016,13 @@ public class TorcDb extends Db {
             messageContent = (String)propMap.get("imageFile");
           }
 
-          long messageCreationDate = ((Long)propMap.get("creationDate")).longValue();
+          long messageCreationDate;
+
+          if(propMap.get("creationDate") instanceof Long) {
+            messageCreationDate = (Long) propMap.get("creationDate");
+          } else {
+            messageCreationDate = Long.parseLong((String) propMap.get("creationDate"));
+          }
 
           long originalPostId;
           long originalPostAuthorId;
@@ -3105,7 +3128,13 @@ public class TorcDb extends Db {
             new String[] {TorcEntity.PERSON.label});
 
         edges.forEachRemaining((e) -> {
-          long creationDate = e.<Long>property("creationDate").value().longValue();
+          long creationDate;
+
+          if(e.property("creationDate").value() instanceof Long) {
+            creationDate = (Long) e.property("creationDate").value();
+          } else {
+            creationDate = Long.parseLong((String) e.property("creationDate").value());
+          }
 
           Vertex friend = e.inVertex();
 
@@ -3186,8 +3215,14 @@ public class TorcDb extends Db {
             new UInt128(TorcEntity.COMMENT.idSpace, operation.messageId()))
             .next();
 
-        long creationDate =
-            message.<Long>property("creationDate").value().longValue();
+        long creationDate;
+
+        if(message.property("creationDate").value() instanceof Long) {
+          creationDate = (Long) message.property("creationDate").value();
+        } else {
+          creationDate = Long.parseLong((String) message.property("creationDate").value());
+        }
+
         String content = message.<String>property("content").value();
         if (content.length() == 0) {
           content = message.<String>property("imageFile").value();
@@ -3404,8 +3439,14 @@ public class TorcDb extends Db {
         for (Vertex reply : replies) {
           long replyId = ((UInt128) reply.id()).getLowerLong();
           String replyContent = reply.<String>property("content").value();
-          long replyCreationDate =
-              reply.<Long>property("creationDate").value().longValue();
+
+          long replyCreationDate;
+
+          if(reply.property("creationDate").value() instanceof Long) {
+            replyCreationDate = (Long) reply.property("creationDate").value();
+          } else {
+            replyCreationDate = Long.parseLong((String) reply.property("creationDate").value());
+          }
 
           Vertex replyAuthor =
               ((TorcVertex) reply).edges(Direction.OUT, 
