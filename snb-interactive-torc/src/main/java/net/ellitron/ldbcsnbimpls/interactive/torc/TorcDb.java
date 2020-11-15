@@ -506,13 +506,13 @@ public class TorcDb extends Db {
               f.id().getLowerLong(), //((UInt128)t.get().get("friendId")).getLowerLong(),
               ((String)f.getProperty("lastName")), //(String)t.get().get("lastName"),
               distance, //((Long)t.get().get("distance")).intValue() - 1,
-              ((Long)f.getProperty("birthday")), //Long.valueOf((String)t.get().get("birthday")),
-              ((Long)f.getProperty("creationDate")), //Long.valueOf((String)t.get().get("creationDate")),
+              Long.parseLong((String) f.getProperty("birthday")),
+              Long.parseLong((String) f.getProperty("creationDate")),
               ((String)f.getProperty("gender")), //(String)t.get().get("gender"),
               ((String)f.getProperty("browserUsed")), //(String)t.get().get("browserUsed"),
               ((String)f.getProperty("locationIP")), //(String)t.get().get("locationIP"),
-              ((List<String>)f.getProperty("email")), //(List<String>)t.get().get("emails"),
-              ((List<String>)f.getProperty("language")), //(List<String>)t.get().get("languages"),
+              ((List<String>)f.getProperty("emails")), //(List<String>)t.get().get("emails"),
+              ((List<String>)f.getProperty("languages")), //(List<String>)t.get().get("languages"),
               ((String)match_place.vMap.get(f).get(0).getProperty("name")), //(String)t.get().get("placeName"),
               universityInfo, //(List<List<Object>>)t.get().get("universityInfo"),
               companyInfo)); //(List<List<Object>>)t.get().get("companyInfo")));
@@ -605,8 +605,8 @@ public class TorcDb extends Db {
         // Sort the Posts and Comments by their creation date.
         Comparator<TorcVertex> c = new Comparator<TorcVertex>() {
               public int compare(TorcVertex v1, TorcVertex v2) {
-                Long v1creationDate = ((Long)v1.getProperty("creationDate"));
-                Long v2creationDate = ((Long)v2.getProperty("creationDate"));
+                Long v1creationDate = Long.parseLong((String)v1.getProperty("creationDate"));
+                Long v2creationDate = Long.parseLong((String)v2.getProperty("creationDate"));
                 if (v1creationDate > v2creationDate)
                   return 1;
                 else if (v1creationDate < v2creationDate)
@@ -620,8 +620,13 @@ public class TorcDb extends Db {
 
         PriorityQueue<TorcVertex> pq = new PriorityQueue(limit, c);
         for (TorcVertex m : messages.vSet) {
-          Long creationDate = (Long)m.getProperty("creationDate");
-         
+          Long creationDate;
+          if(m.getProperty("creationDate") instanceof String) {
+            creationDate = Long.parseLong((String)m.getProperty("creationDate"));
+          } else {
+            creationDate = (Long) m.getProperty("creationDate");
+          }
+
           if (creationDate > maxDate)
             continue;
 
@@ -630,7 +635,7 @@ public class TorcDb extends Db {
             continue;
           }
 
-          if (creationDate > (Long)pq.peek().getProperty("creationDate")) {
+          if (creationDate > Long.parseLong((String)pq.peek().getProperty("creationDate"))) {
             pq.add(m);
             pq.poll();
           }
@@ -663,7 +668,7 @@ public class TorcDb extends Db {
               ((String)f.getProperty("lastName")), //(String)t.get().get("lastName"),
               m.id().getLowerLong(), //((UInt128)t.get().get("messageId")).getLowerLong(), 
               content, //(String)t.get().get("content"),
-              ((Long)m.getProperty("creationDate")))); //Long.valueOf((String)t.get().get("creationDate"))))
+              (Long.parseLong((String)m.getProperty("creationDate"))))); //Long.valueOf((String)t.get().get("creationDate"))))
         }
 
         if (doTransactionalReads) {
@@ -774,7 +779,13 @@ public class TorcDb extends Db {
 
         // Filter out all messages not in the given time window.
         messages.vSet.removeIf(m -> {
-          Long creationDate = (Long)m.getProperty("creationDate");
+          Long creationDate;
+          if(m.getProperty("creationDate") instanceof Long) {
+            creationDate = (Long) m.getProperty("creationDate");
+          } else {
+            creationDate = Long.parseLong((String)m.getProperty("creationDate"));
+          }
+
           return !(startDate <= creationDate && creationDate <= endDate);
         });
 
@@ -942,7 +953,7 @@ public class TorcDb extends Db {
         // Filter out posts that are more recent than endDate. Don't want to do
         // extra work for them.
         posts.vSet.removeIf(p -> {
-          Long creationDate = (Long)p.getProperty("creationDate");
+          Long creationDate = Long.parseLong((String)p.getProperty("creationDate"));
           return creationDate > endDate;
         });
 
@@ -953,7 +964,7 @@ public class TorcDb extends Db {
         Set<TorcVertex> tagsBeforeWindow = new HashSet<>();
         Map<TorcVertex, Long> tagCounts = new HashMap<>();
         for (TorcVertex p : tags.vMap.keySet()) {
-          Long pCreationDate = (Long)p.getProperty("creationDate");
+          Long pCreationDate = Long.parseLong((String)p.getProperty("creationDate"));
           if (pCreationDate >= startDate && pCreationDate <= endDate) {
             for (TorcVertex t : tags.vMap.get(p)) {
               tagsWithinWindow.add(t);
@@ -1089,11 +1100,18 @@ public class TorcDb extends Db {
         TraversalResult friendForums = graph.traverse(friends, "hasMember", Direction.IN, true, "Forum");
 
         // Filter out all edges with joinDate <= minDate
-        TorcHelper.removeEdgeIf(friendForums, (v, p) -> { 
-          if ((Long)p.get("joinDate") <= minDate)
+        TorcHelper.removeEdgeIf(friendForums, (v, p) -> {
+          if(p.get("joinDate") instanceof String) {
+            if(Long.parseLong((String) p.get("joinDate")) <= minDate) {
+              return true;
+            } else {
+              return false;
+            }
+          } else if ((Long)p.get("joinDate") <= minDate) {
             return true;
-          else 
+          } else {
             return false;
+          }
         });
 
         // Invert the friendForums mapping so we get a list of all the friends
@@ -1405,7 +1423,14 @@ public class TorcDb extends Db {
 
           for (int i = 0; i < likers.size(); i++) {
             TorcVertex liker = likers.get(i);
-            Long likeDate = (Long)likeProps.get(i).get("creationDate");
+
+            Long likeDate;
+            if(likeProps.get(i).get("creationDate") instanceof String) {
+              likeDate = Long.parseLong((String)likeProps.get(i).get("creationDate"));
+            } else {
+              likeDate = (Long)likeProps.get(i).get("creationDate");
+            }
+
             if (personMostRecentLikeDate.containsKey(liker)) {
               // We already have a most recent like date registered for this
               // person. Check if the new like date is more recent and, if so,
@@ -1543,7 +1568,7 @@ public class TorcDb extends Db {
             content = (String)msg.getProperty("imageFile");
 
           Long latencyMinutes = 
-            (likeDate - (Long)msg.getProperty("creationDate")) / (1000l * 60l);
+            (likeDate - Long.parseLong((String)msg.getProperty("creationDate"))) / (1000l * 60l);
 
           result.add(new LdbcQuery7Result(
               liker.id().getLowerLong(), 
@@ -1643,8 +1668,8 @@ public class TorcDb extends Db {
         // Sort the replies by their creation date.
         Comparator<TorcVertex> c = new Comparator<TorcVertex>() {
               public int compare(TorcVertex v1, TorcVertex v2) {
-                Long v1creationDate = ((Long)v1.getProperty("creationDate"));
-                Long v2creationDate = ((Long)v2.getProperty("creationDate"));
+                Long v1creationDate = Long.parseLong((String)v1.getProperty("creationDate"));
+                Long v2creationDate = Long.parseLong((String)v2.getProperty("creationDate"));
                 if (v1creationDate > v2creationDate)
                   return 1;
                 else if (v1creationDate < v2creationDate)
@@ -1658,14 +1683,14 @@ public class TorcDb extends Db {
 
         PriorityQueue<TorcVertex> pq = new PriorityQueue(limit, c);
         for (TorcVertex r : replies.vSet) {
-          Long creationDate = (Long)r.getProperty("creationDate");
+          Long creationDate = Long.parseLong((String)r.getProperty("creationDate"));
          
           if (pq.size() < limit) {
             pq.add(r);
             continue;
           }
 
-          if (creationDate > (Long)pq.peek().getProperty("creationDate")) {
+          if (creationDate > Long.parseLong((String)pq.peek().getProperty("creationDate"))) {
             pq.add(r);
             pq.poll();
           }
@@ -1694,7 +1719,7 @@ public class TorcDb extends Db {
                 a.id().getLowerLong(),
                 (String)a.getProperty("firstName"),
                 (String)a.getProperty("lastName"),
-                (Long)r.getProperty("creationDate"),
+                Long.parseLong((String)r.getProperty("creationDate")),
                 r.id().getLowerLong(),
                 content));
         }
@@ -1793,8 +1818,8 @@ public class TorcDb extends Db {
         // Sort the Posts and Comments by their creation date.
         Comparator<TorcVertex> c = new Comparator<TorcVertex>() {
               public int compare(TorcVertex v1, TorcVertex v2) {
-                Long v1creationDate = ((Long)v1.getProperty("creationDate"));
-                Long v2creationDate = ((Long)v2.getProperty("creationDate"));
+                Long v1creationDate = Long.parseLong((String)v1.getProperty("creationDate"));
+                Long v2creationDate = Long.parseLong((String)v2.getProperty("creationDate"));
                 if (v1creationDate > v2creationDate)
                   return 1;
                 else if (v1creationDate < v2creationDate)
@@ -1808,7 +1833,12 @@ public class TorcDb extends Db {
 
         PriorityQueue<TorcVertex> pq = new PriorityQueue(limit, c);
         for (TorcVertex m : messages.vSet) {
-          Long creationDate = (Long)m.getProperty("creationDate");
+          Long creationDate;
+          if(m.getProperty("creationDate") instanceof String) {
+            creationDate = Long.parseLong((String)m.getProperty("creationDate"));
+          } else {
+            creationDate = (Long) m.getProperty("creationDate");
+          }
          
           if (creationDate >= maxDate)
             continue;
@@ -1818,7 +1848,7 @@ public class TorcDb extends Db {
             continue;
           }
 
-          if (creationDate > (Long)pq.peek().getProperty("creationDate")) {
+          if (creationDate > Long.parseLong((String)pq.peek().getProperty("creationDate"))) {
             pq.add(m);
             pq.poll();
           }
@@ -1852,7 +1882,7 @@ public class TorcDb extends Db {
               ((String)f.getProperty("lastName")), //(String)t.get().get("lastName"),
               m.id().getLowerLong(), //((UInt128)t.get().get("messageId")).getLowerLong(), 
               content, //(String)t.get().get("content"),
-              ((Long)m.getProperty("creationDate")))); //Long.valueOf((String)t.get().get("creationDate"))))
+              Long.parseLong((String)m.getProperty("creationDate")))); //Long.valueOf((String)t.get().get("creationDate"))))
         }
 
         if (doTransactionalReads) {
@@ -1952,7 +1982,7 @@ public class TorcDb extends Db {
 
         // Filter by birthday
         l2_friends.vSet.removeIf(f -> {
-          calendar.setTimeInMillis((Long)f.getProperty("birthday"));
+          calendar.setTimeInMillis(Long.parseLong((String)f.getProperty("birthday")));
           int bmonth = calendar.get(Calendar.MONTH); // zero based 
           int bday = calendar.get(Calendar.DAY_OF_MONTH); // starts with 1
           if ((bmonth == month && bday >= 21) || 
@@ -2153,9 +2183,7 @@ public class TorcDb extends Db {
         TorcHelper.removeEdgeIf(company, (v, p) -> {
           if(p.get("workFrom") instanceof Integer && ((Integer) p.get("workFrom")).compareTo(workFromYear) >= 0) {
             return true;
-          } if(p.get("workFrom") instanceof String && (Integer.parseInt(String.valueOf(p.get("workFrom")))).compareTo(workFromYear) >= 0) {
-            return true;
-          } else if ((new Integer((int)p.get("workFrom"))).compareTo(workFromYear) >= 0) {
+          } else if (p.get("workFrom") instanceof String && Integer.compare(Integer.parseInt((String) p.get("workFrom")), workFromYear) >= 0) {
             return true;
           } else {
             return false;
@@ -2199,7 +2227,7 @@ public class TorcDb extends Db {
             if (!company.vSet.contains(c))
               continue;
             
-            int year = ((Integer)p.get("workFrom")).intValue();
+            int year = Integer.parseInt((String) p.get("workFrom"));
             String name = (String)c.getProperty("name");
 
             if (pq.size() < limit) {
@@ -2900,16 +2928,30 @@ public class TorcDb extends Db {
               new String[] {TorcEntity.PLACE.label}).next().inVertex();
         long placeId = ((UInt128) place.id()).getLowerLong();
 
+        long birthday;
+        if(propertyMap.get("birthday") instanceof String) {
+          birthday = Long.parseLong((String)propertyMap.get("birthday"));
+        } else {
+          birthday = (Long) propertyMap.get("birthday");
+        }
+
+        long createDate;
+        if(propertyMap.get("creationDate") instanceof String) {
+          createDate = Long.parseLong((String)propertyMap.get("creationDate"));
+        } else {
+          createDate = (Long) propertyMap.get("creationDate");
+        }
+
         LdbcShortQuery1PersonProfileResult res =
             new LdbcShortQuery1PersonProfileResult(
                 (String)propertyMap.get("firstName"),
                 (String)propertyMap.get("lastName"),
-                Long.parseLong((String)propertyMap.get("birthday")),
+                birthday,
                 (String)propertyMap.get("locationIP"),
                 (String)propertyMap.get("browserUsed"),
                 placeId,
                 (String)propertyMap.get("gender"),
-                Long.parseLong((String)propertyMap.get("creationDate"))
+                createDate
             );
 
         if (doTransactionalReads) {
